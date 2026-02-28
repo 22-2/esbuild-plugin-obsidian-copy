@@ -1,3 +1,5 @@
+// @ts-check
+
 import fs from "fs";
 import path from "path";
 
@@ -36,7 +38,7 @@ export const obsidianCopyPlugin = (options = {}) => {
             return;
           }
 
-          if (pluginId === "sample-plugin") {
+          if (pluginId.includes("sample")) {
             console.warn("obsidian-copy: [Warning] plugin-id is 'sample-plugin'. Please change it in manifest.json.");
           }
 
