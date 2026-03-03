@@ -4,9 +4,10 @@ import type { Plugin } from "esbuild";
 
 export interface ObsidianCopyOptions {
   /**
-   * The base plugins directory (e.g., path to your vault's .obsidian/plugins).
+   * The base plugins directory (or directories) to copy into.
+   * e.g., path to your vault's .obsidian/plugins
    */
-  pluginsDir: string;
+  pluginsDir: string | string[];
   /**
    * Explicitly specify the target directory name.
    * If not provided, the plugin ID from `manifest.json` will be used.
@@ -14,15 +15,67 @@ export interface ObsidianCopyOptions {
   targetDirName?: string;
   /**
    * If true, overwrite existing target directory.
+   * @default false
    */
   force?: boolean;
+  /**
+   * Files to copy. Defaults to ["main.js", "manifest.json", "styles.css"].
+   */
+  files?: string[];
 }
 
+const FILES_TO_COPY = ["main.js", "manifest.json", "styles.css"];
+
+const resolvePluginId = (targetDirName?: string): string | null => {
+  if (!fs.existsSync("manifest.json")) {
+    console.error("obsidian-copy: [Error] manifest.json not found in current directory.");
+    return null;
+  }
+
+  const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+  const pluginId = targetDirName ?? manifest.id;
+
+  if (!pluginId) {
+    console.error(
+      "obsidian-copy: [Error] Could not determine plugin ID. " +
+        "Specify 'targetDirName' or ensure 'id' exists in manifest.json."
+    );
+    return null;
+  }
+
+  if (manifest.id?.includes("sample")) {
+    console.warn("obsidian-copy: [Warning] manifest.json 'id' still includes 'sample'. Please change it.");
+  }
+
+  return pluginId;
+};
+
+const copyToDir = (targetDir: string, files: string[], force: boolean): void => {
+  if (fs.existsSync(targetDir) && !force) {
+    console.error(
+      `obsidian-copy: [Error] Target directory '${targetDir}' already exists. Set 'force: true' to overwrite.`
+    );
+    return;
+  }
+
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  for (const file of files) {
+    if (fs.existsSync(file)) {
+      fs.copyFileSync(file, path.join(targetDir, file));
+    }
+  }
+
+  fs.writeFileSync(path.join(targetDir, ".hotreload"), "");
+
+  console.log(`obsidian-copy: Successfully copied files to ${targetDir}`);
+};
+
 /**
- * esbuild plugin to copy Obsidian plugin files to a target plugins directory.
+ * esbuild plugin to copy Obsidian plugin files to one or more target plugin directories.
  */
 export const obsidianCopyPlugin = (options: ObsidianCopyOptions): Plugin => {
-  const { pluginsDir, targetDirName, force = false } = options;
+  const { pluginsDir, targetDirName, force = false, files = FILES_TO_COPY } = options;
 
   return {
     name: "obsidian-copy",
@@ -30,60 +83,21 @@ export const obsidianCopyPlugin = (options: ObsidianCopyOptions): Plugin => {
       build.onEnd(async (result) => {
         if (result.errors.length > 0) return;
 
-        if (!pluginsDir) {
-          console.error("obsidian-copy: [Error] pluginsDir is not specified in options.");
+        const pluginsDirs = Array.isArray(pluginsDir) ? pluginsDir : [pluginsDir];
+
+        if (pluginsDirs.length === 0) {
+          console.error("obsidian-copy: [Error] pluginsDir is empty.");
           return;
         }
 
+        const pluginId = resolvePluginId(targetDirName);
+        if (!pluginId) return;
+
         try {
-          if (!fs.existsSync("manifest.json")) {
-            console.error("obsidian-copy: [Error] manifest.json not found in current directory.");
-            return;
+          for (const dir of pluginsDirs) {
+            const targetDir = path.resolve(dir, pluginId);
+            copyToDir(targetDir, files, force);
           }
-
-          const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
-          const pluginIdFromManifest = manifest.id;
-          const pluginId = targetDirName || pluginIdFromManifest;
-
-          if (!pluginId) {
-            console.error(
-              "obsidian-copy: [Error] Could not determine plugin ID. Please specify 'targetDirName' or ensure 'id' exists in manifest.json."
-            );
-            return;
-          }
-
-          if (pluginIdFromManifest && pluginIdFromManifest.includes("sample")) {
-            console.warn(
-              "obsidian-copy: [Warning] manifest.json plugin 'id' still includes 'sample'. Please change it."
-            );
-          }
-
-          const targetDir = path.resolve(pluginsDir, pluginId);
-
-          if (fs.existsSync(targetDir) && !force) {
-            console.error(
-              `obsidian-copy: [Error] Target directory '${targetDir}' already exists. Set 'force: true' to overwrite.`
-            );
-            return;
-          }
-
-          if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-          }
-
-          // In esbuild build result, the files are typically in current directory or specified output directory.
-          // For Obsidian plugins, it's usually main.js, manifest.json, styles.css in the current directory.
-          const filesToCopy = ["main.js", "manifest.json", "styles.css"];
-          for (const file of filesToCopy) {
-            if (fs.existsSync(file)) {
-              fs.copyFileSync(file, path.join(targetDir, file));
-            }
-          }
-
-          // Hot-reload support
-          fs.writeFileSync(path.join(targetDir, ".hotreload"), "");
-
-          console.log(`obsidian-copy: Successfully copied files to ${targetDir}`);
         } catch (err: any) {
           console.error(`obsidian-copy: [Error] ${err.message}`);
         }
@@ -91,5 +105,3 @@ export const obsidianCopyPlugin = (options: ObsidianCopyOptions): Plugin => {
     },
   };
 };
-
-export default obsidianCopyPlugin;

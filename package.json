@@ -1,6 +1,6 @@
 {
   "name": "@22-2/esbuild-plugin-obsidian-copy",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "esbuild plugin to copy Obsidian plugin files to a target plugins directory",
   "type": "module",
   "main": "./dist/index.cjs",
