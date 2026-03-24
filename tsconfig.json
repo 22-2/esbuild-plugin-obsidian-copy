@@ -1,9 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "paths": {
-      "*": ["./*"]
-    },
+    "target": "esnext",
     "module": "esnext",
     "moduleResolution": "bundler",
     "esModuleInterop": true,

@@ -1,5 +1,5 @@
 import { defineConfig } from "tsup";
-
+import { builtinModules } from "node:module";
 export default defineConfig({
   entry: ["src/index.ts"],
   format: ["esm"],
@@ -8,6 +8,8 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   minify: false,
-  target: "esnext",
+  target: "node24",
   outDir: "dist",
+  platform: "node",
+  external: [...builtinModules],
 });
