@@ -26,14 +26,14 @@ export interface ObsidianCopyOptions {
 
 const FILES_TO_COPY = ["main.js", "manifest.json", "styles.css"];
 
-const resolvePluginId = (targetDirName?: string): string | null => {
+const resolvePluginId = (): string | null => {
   if (!fs.existsSync("manifest.json")) {
     console.error("obsidian-copy: [Error] manifest.json not found in current directory.");
     return null;
   }
 
   const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
-  const pluginId = targetDirName ?? manifest.id;
+  const pluginId = manifest.id;
 
   if (!pluginId) {
     console.error(
@@ -90,7 +90,7 @@ export const obsidianCopyPlugin = (options: ObsidianCopyOptions): Plugin => {
           return;
         }
 
-        const pluginId = resolvePluginId(targetDirName);
+        const pluginId = targetDirName ?? resolvePluginId();
         if (!pluginId) return;
 
         try {
