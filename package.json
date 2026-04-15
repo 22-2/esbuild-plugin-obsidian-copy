@@ -1,6 +1,6 @@
 {
   "name": "@22-2/esbuild-plugin-obsidian-copy",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "esbuild plugin to copy Obsidian plugin files to a target plugins directory",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
