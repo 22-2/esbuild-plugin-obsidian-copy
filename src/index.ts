@@ -81,7 +81,11 @@ export const obsidianCopyPlugin = (options: ObsidianCopyOptions): Plugin => {
     name: "obsidian-copy",
     setup(build) {
       build.onEnd(async (result) => {
-        if (result.errors.length > 0) return;
+        if (result.errors.length > 0) {
+          console.error("obsidian-copy: [Error] Build failed with errors. Skipping copy.");
+          return;
+        }
+        console.log("obsidian-copy: Build succeeded. Starting copy process...");
 
         const pluginsDirs = Array.isArray(pluginsDir) ? pluginsDir : [pluginsDir];
 
@@ -97,6 +101,7 @@ export const obsidianCopyPlugin = (options: ObsidianCopyOptions): Plugin => {
           for (const dir of pluginsDirs) {
             const targetDir = path.resolve(dir, pluginId);
             copyToDir(targetDir, files, force);
+            console.log(`obsidian-copy: Copied to ${targetDir}`);
           }
         } catch (err: any) {
           console.error(`obsidian-copy: [Error] ${err.message}`);
