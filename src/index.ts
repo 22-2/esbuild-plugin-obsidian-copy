@@ -4,8 +4,9 @@ import type { Plugin as EsbuildPlugin } from "esbuild";
 import type { Plugin as VitePlugin, ResolvedConfig } from "vite";
 
 export interface ObsidianCopyOptions {
-  pluginsDir: string | string[];
-  targetDirName?: string;
+  /** コピー先のディレクトリパス (例: "/path/to/vault/.obsidian/plugins/my-plugin") */
+  targetDir: string | string[];
+  /** 既にディレクトリが存在する場合でも上書きするかどうか (デフォルト: true) */
   force?: boolean;
 }
 
@@ -29,65 +30,48 @@ const resolveManifestPath = (): string | null => {
  * @param options プラグイン設定
  */
 const runCopy = (outDir: string, options: ObsidianCopyOptions) => {
-  const { pluginsDir, targetDirName, force = false } = options;
+  const { targetDir, force = true } = options;
 
-  // 1. manifest.json の解決
+  // 1. manifest.json の場所を特定
   const manifestPath = resolveManifestPath();
   if (!manifestPath) {
-    console.error("obsidian-copy: [Error] manifest.json not found in current or parent directory.");
+    console.error("obsidian-copy: [Error] manifest.json not found.");
     return;
   }
 
-  // 2. Plugin ID の決定
-  let pluginId = targetDirName;
-  if (!pluginId) {
-    try {
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-      pluginId = manifest.id;
-    } catch (e) {
-      console.error("obsidian-copy: [Error] Failed to read manifest.json");
-      return;
-    }
-  }
-
-  if (!pluginId) {
-    console.error("obsidian-copy: [Error] Could not determine plugin ID.");
-    return;
-  }
-
-  // 3. コピー対象ファイルの収集
-  // outDir 内の全ファイル + 解決した manifest.json
+  // 2. コピー対象ファイルの収集
   const buildFiles = fs.existsSync(outDir) ? fs.readdirSync(outDir) : [];
-  const targets = Array.isArray(pluginsDir) ? pluginsDir : [pluginsDir];
+  const targets = Array.isArray(targetDir) ? targetDir : [targetDir];
 
-  for (const baseDir of targets) {
-    const targetPath = path.resolve(baseDir, pluginId);
+  for (const rawPath of targets) {
+    const absoluteTargetPath = path.resolve(rawPath);
 
-    if (fs.existsSync(targetPath) && !force) {
-      console.log(`obsidian-copy: [Skip] ${targetPath} already exists.`);
+    // すでに存在し、force=false の場合はスキップ
+    if (fs.existsSync(absoluteTargetPath) && !force) {
+      console.log(`obsidian-copy: [Skip] ${absoluteTargetPath} already exists.`);
       continue;
     }
 
     try {
-      if (!fs.existsSync(targetPath)) {
-        fs.mkdirSync(targetPath, { recursive: true });
+      if (!fs.existsSync(absoluteTargetPath)) {
+        fs.mkdirSync(absoluteTargetPath, { recursive: true });
       }
 
-      // outDir からファイルをコピー (main.js, styles.css 等)
+      // ビルド成果物 (main.js, styles.css 等) をコピー
       for (const file of buildFiles) {
         const src = path.join(outDir, file);
         if (fs.statSync(src).isFile()) {
-          fs.copyFileSync(src, path.join(targetPath, file));
+          fs.copyFileSync(src, path.join(absoluteTargetPath, file));
         }
       }
 
-      // manifest.json をコピー (outDirにない場合を考慮)
-      fs.copyFileSync(manifestPath, path.join(targetPath, "manifest.json"));
+      // manifest.json をコピー
+      fs.copyFileSync(manifestPath, path.join(absoluteTargetPath, "manifest.json"));
 
-      // Hot Reload 用ファイル
-      fs.writeFileSync(path.join(targetPath, ".hotreload"), "");
+      // Hot Reload 用の隠しファイルを作成
+      fs.writeFileSync(path.join(absoluteTargetPath, ".hotreload"), "");
 
-      console.log(`obsidian-copy: Copied to ${targetPath}`);
+      console.log(`obsidian-copy: Copied to ${absoluteTargetPath}`);
     } catch (err: any) {
       console.error(`obsidian-copy: [Error] ${err.message}`);
     }
@@ -102,7 +86,6 @@ export const obsidianCopyEsbuild = (options: ObsidianCopyOptions): EsbuildPlugin
     build.onEnd((result) => {
       if (result.errors.length > 0) return;
 
-      // esbuild の設定から出力先を特定
       const { outdir, outfile } = build.initialOptions;
       const resolvedOutDir = outdir || (outfile ? path.dirname(outfile) : ".");
 
@@ -123,7 +106,6 @@ export const obsidianCopyVite = (options: ObsidianCopyOptions): VitePlugin => {
       config = resolvedConfig;
     },
     closeBundle() {
-      // Vite の設定からビルド出力先 (デフォルトは 'dist') を取得
       const resolvedOutDir = config.build.outDir || "dist";
       runCopy(resolvedOutDir, options);
     },
