@@ -1,7 +1,7 @@
 import { defineConfig } from "tsdown";
 // @ts-expect-error
-
 import { builtinModules } from "node:module";
+
 export default defineConfig({
   entry: ["src/index.ts"],
   format: ["esm"],
