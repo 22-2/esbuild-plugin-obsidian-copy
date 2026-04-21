@@ -8,6 +8,8 @@ export interface ObsidianCopyOptions {
   targetDir: string | string[];
   /** 既にディレクトリが存在する場合でも上書きするかどうか (デフォルト: true) */
   force?: boolean;
+  /** 追加でコピーしたいファイル名 */
+  include?: string[];
 }
 
 // --- 共通ロジック ---
@@ -40,7 +42,15 @@ const runCopy = (outDir: string, options: ObsidianCopyOptions) => {
   }
 
   // 2. コピー対象ファイルの収集
-  const buildFiles = fs.existsSync(outDir) ? fs.readdirSync(outDir) : [];
+  // Obsidian プラグインで通常必要な成果物だけコピーするように絞る。
+  // なぜ: 中間ファイル（.map 等）や不要なアセットを無差別にコピーすると、
+  // プラグインディレクトリが肥大化したり誤配布の原因になるため。
+  const OBSIDIAN_FILES = new Set(["main.js", "styles.css"]);
+  const allowList = new Set([...(OBSIDIAN_FILES), ...(options.include ?? [])]);
+
+  const buildFiles = fs.existsSync(outDir)
+    ? fs.readdirSync(outDir).filter((f) => allowList.has(f))
+    : [];
   const targets = Array.isArray(targetDir) ? targetDir : [targetDir];
 
   for (const rawPath of targets) {
