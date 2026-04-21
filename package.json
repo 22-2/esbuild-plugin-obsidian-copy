@@ -1,6 +1,6 @@
 {
   "name": "@22-2/obsidian-copy-bundler-plugin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "bundler plugin to copy Obsidian plugin files to a target plugins directory",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
